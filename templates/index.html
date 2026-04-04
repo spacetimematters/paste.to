@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>paste.to</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>paste.to</h1>
+    <p class="subtitle">paste a youtube link. get the file.</p>
+
+    <div class="input-group">
+      <input
+        type="text"
+        id="url"
+        placeholder="https://youtube.com/watch?v=..."
+        autocomplete="off"
+        spellcheck="false"
+      >
+    </div>
+
+    <div class="mode-toggle">
+      <button id="btn-video" class="mode active" data-mode="video">Video</button>
+      <button id="btn-thumb" class="mode" data-mode="thumbnail">Thumbnail</button>
+    </div>
+
+    <button id="go" disabled>Download</button>
+
+    <div id="status" class="status hidden"></div>
+
+    <div id="result" class="result hidden">
+      <a id="result-link" href="#">Download file</a>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
