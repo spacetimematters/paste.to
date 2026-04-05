@@ -17,6 +17,54 @@ CONFIG_PATH = os.path.join(Path.home(), ".paste-to-config.json")
 MONO = "Consolas"
 
 # ---------------------------------------------------------------------------
+# ffmpeg auto-setup
+# ---------------------------------------------------------------------------
+FFMPEG_DIR = os.path.join(Path.home(), ".paste-to", "ffmpeg")
+
+def _get_ffmpeg_path():
+    """Return path to ffmpeg, downloading a portable copy if needed."""
+    # Check if ffmpeg is already on PATH
+    if shutil.which("ffmpeg"):
+        return None  # yt-dlp will find it
+
+    # Check our bundled copy
+    if platform.system() == "Windows":
+        local = os.path.join(FFMPEG_DIR, "ffmpeg.exe")
+    else:
+        local = os.path.join(FFMPEG_DIR, "ffmpeg")
+
+    if os.path.isfile(local):
+        return FFMPEG_DIR
+
+    return None
+
+def _download_ffmpeg(msg_queue):
+    """Download portable ffmpeg in background. Sends status via queue."""
+    if platform.system() != "Windows":
+        return
+    os.makedirs(FFMPEG_DIR, exist_ok=True)
+    url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+    zip_path = os.path.join(FFMPEG_DIR, "ffmpeg.zip")
+    try:
+        import urllib.request
+        msg_queue.put(("ffmpeg_status", "downloading ffmpeg..."))
+        urllib.request.urlretrieve(url, zip_path)
+        msg_queue.put(("ffmpeg_status", "extracting ffmpeg..."))
+        import zipfile
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            for member in zf.namelist():
+                fname = os.path.basename(member)
+                if fname in ("ffmpeg.exe", "ffprobe.exe"):
+                    with zf.open(member) as src:
+                        dst = os.path.join(FFMPEG_DIR, fname)
+                        with open(dst, "wb") as out:
+                            out.write(src.read())
+        os.remove(zip_path)
+        msg_queue.put(("ffmpeg_status", "ffmpeg ready"))
+    except Exception as e:
+        msg_queue.put(("ffmpeg_status", f"ffmpeg download failed: {str(e)[:50]}"))
+
+# ---------------------------------------------------------------------------
 # Quality / Format maps
 # ---------------------------------------------------------------------------
 QUALITY_MAP = {
@@ -165,6 +213,11 @@ class App(ctk.CTk):
         self._apply_theme()
         self.after(50, self._fix_taskbar)
         self._poll_queue()
+
+        # Auto-download ffmpeg if not available
+        if not shutil.which("ffmpeg") and not os.path.isfile(
+                os.path.join(FFMPEG_DIR, "ffmpeg.exe" if platform.system() == "Windows" else "ffmpeg")):
+            threading.Thread(target=_download_ffmpeg, args=(self.msg_queue,), daemon=True).start()
 
     # ------------------------------------------------------------------ title bar
     def _build_titlebar(self):
@@ -634,6 +687,11 @@ class App(ctk.CTk):
             "outtmpl": os.path.join(tmp_dir, "%(title).80s.%(ext)s"),
             "quiet": True, "no_warnings": True,
         }
+        # Point yt-dlp to our bundled ffmpeg if system ffmpeg not found
+        ffmpeg_loc = _get_ffmpeg_path()
+        if ffmpeg_loc:
+            opts["ffmpeg_location"] = ffmpeg_loc
+
         if mode == "thumbnail":
             opts["skip_download"] = True
             opts["writethumbnail"] = True
@@ -785,6 +843,9 @@ class App(ctk.CTk):
                     self.update_status.configure(
                         text=msg[1], text_color=self.theme["error"])
                     self.update_btn.configure(state="normal")
+
+                elif mtype == "ffmpeg_status":
+                    pass  # silent background download
 
         except Empty:
             pass

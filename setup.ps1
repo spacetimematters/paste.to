@@ -71,6 +71,22 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
+# Check for ffmpeg
+$ffmpegFound = $false
+try { ffmpeg -version 2>&1 | Out-Null; $ffmpegFound = $true } catch {}
+if (-not $ffmpegFound) {
+    Write-Host ""
+    Write-Host "  Installing ffmpeg (needed for audio downloads)..." -ForegroundColor Gray
+    try {
+        winget install --id Gyan.FFmpeg --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+        Write-Host "  [OK] ffmpeg installed via winget" -ForegroundColor Green
+    } catch {
+        Write-Host "  [!] Could not auto-install ffmpeg. The app will download it on first use." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "  [OK] ffmpeg found" -ForegroundColor Green
+}
+
 Write-Host ""
 Write-Host "  [OK] Setup complete!" -ForegroundColor Green
 Write-Host ""
